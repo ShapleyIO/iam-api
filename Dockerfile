@@ -7,7 +7,7 @@ RUN mkdir ~/.ssh
 RUN ssh-keyscan github.com >> ~/.ssh/known_hosts \
     git config --global url."git@github.com".insteadOf "https://github.com"
 
-ENV PROJECT shapley-cepheid
+ENV PROJECT shapley-iam
 WORKDIR $GOPATH/src/github.com/ShapleyIO/$PROJECT
 RUN git config --global --add safe.directory $GOPATH/src/github.com/ShapleyIO/$PROJECT
 
@@ -40,7 +40,7 @@ FROM golang-builder as api-builder
 RUN --mount=type=cache,target=/root/.cache/go-build bin/build
 
 FROM golang:1.22.1 as api
-COPY --from=api-builder /go/src/github.com/ShapleyIO/shapley-cepheid/dist/cepheid-api /usr/bin/cepheid-api
+COPY --from=api-builder /go/src/github.com/ShapleyIO/shapley-iam/dist/iam-api /usr/bin/iam-api
 ENV INTERFACE="[::]"
 EXPOSE 8080
-ENTRYPOINT [ "cepheid-api" ]
+ENTRYPOINT [ "iam-api" ]

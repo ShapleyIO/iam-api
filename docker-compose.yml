@@ -1,7 +1,7 @@
 version: '2.4'
 services:
-  cepheid-api:
-    container_name: cepheid-api
+  iam-api:
+    container_name: iam-api
     extends:
       file: docker-compose.common.yml
       service: api
