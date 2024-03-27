@@ -1,0 +1,169 @@
+openapi: 3.0.3
+info:
+  title: IAM API
+  description: |-
+    Base IAM API Definition
+  contact:
+    email: kevin@shapley.io
+  version: 0.0.1
+servers:
+  - url: https://iam.shapley.io
+  - url: https://iam.stg.shapley.io
+  - url: https://sso.shapley.io
+  - url: https://sso.stg.shapley.io
+  - url: http://localhost:8080
+  - url: http://127.0.0.1:8080
+tags:
+  - name: Identity
+    description: Operations around managing Users
+  - name: AuthN
+    description: Operations around managing User Authentication
+  - name: AuthZ
+    description: Operations around managing User Authorization
+paths:
+  /v1/user:
+    post:
+      tags:
+        - Identity
+      summary: Create a User
+      description: Create a User
+      operationId: createUser
+      requestBody:
+        description: "A user object"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Found User
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    get:
+      tags:
+        - Identity
+      summary: Get a User
+      description: Get a User
+      operationId: getUser
+      parameters:
+        - name: email
+          in: query
+          description: Email of user to get
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Found User
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    put:
+      tags:
+        - Identity
+      summary: Update a User
+      description: Update a User
+      operationId: updateUser
+      parameters:
+        - name: email
+          in: query
+          description: Email of user to update
+          required: true
+          schema:
+            type: string
+            format: email
+      requestBody:
+        description: "A user object"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Updated User
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      tags:
+        - Identity
+      summary: Delete a User
+      description: Delete a User
+      operationId: deleteUser
+      parameters:
+        - name: email
+          in: query
+          description: Email of user to delete
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '201':
+          description: Marks User for Deletion
+  /v1/user/password:
+    put:
+      tags:
+        - Identity
+      summary: Update a User's Password
+      description: Update a User's Password
+      operationId: updateUserPassword
+      parameters:
+        - name: email
+          in: query
+          description: Email of user to update password
+          required: true
+          schema:
+            type: string
+            format: email
+      requestBody:
+        description: "A password object"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Password'
+      responses:
+        '200':
+          description: Updated User Password
+    
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+      required:
+        - first_name
+        - last_name
+        - email
+    Password:
+      type: object
+      properties:
+        password:
+          type: string
+      required:
+        - password
+  
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://sso.shapley.io/oauth2/auth
+          tokenUrl: https://sso.shapley.io/oauth2/token
+          scopes:
+            featureflags:read: Ability to Read Feature Flags

@@ -1,0 +1,26 @@
+version: '2.4'
+services:
+  cepheid-api:
+    container_name: cepheid-api
+    extends:
+      file: docker-compose.common.yml
+      service: api
+    # networks:
+    #   - backend
+    ports:
+      - "8080:8080"
+    # env_file:
+    #   - some/path
+    # volumes:
+    #   - some/path:other/path
+  redis:
+    container_name: redis
+    extends:
+      file: docker-compose.common.yml
+      service: redis
+    ports:
+      - "6379:6379"
+
+# networks:
+#   backend:
+#     external: true
