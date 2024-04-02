@@ -6,10 +6,10 @@ import (
 	"net/http"
 
 	"github.com/ShapleyIO/iam/api/handlers/identity"
+	"github.com/ShapleyIO/iam/api/middleware"
 	v1 "github.com/ShapleyIO/iam/api/v1"
 	"github.com/ShapleyIO/iam/internal/passwordhasher"
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 )
 
 type ServiceAuthN struct {
@@ -27,12 +27,14 @@ func NewServiceAuthN(redisClient *redis.Client, hasher passwordhasher.PasswordHa
 // Login a User
 // (POST /v1/login)
 func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
+	logger := middleware.GetLogger(r.Context())
+
 	defer r.Body.Close()
 
 	// Read the request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to read request body")
+		logger.Error().Err(err).Msg("failed to read request body")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -40,7 +42,7 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	// Unmarshal the request body
 	var login v1.Login
 	if err := json.Unmarshal(body, &login); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal request body")
+		logger.Error().Err(err).Msg("failed to unmarshal request body")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -49,12 +51,12 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	userJsonBytes, err := s.redisClient.Get(r.Context(), string(login.Email)).Result()
 	if err != nil {
 		if err == redis.Nil {
-			log.Error().Str("email", string(login.Email)).Msg("user not found")
+			logger.Error().Str("email", string(login.Email)).Msg("user not found")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		log.Error().Err(err).Msg("failed to get user from Redis")
+		logger.Error().Err(err).Msg("failed to get user from Redis")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -62,7 +64,7 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	// Unmarshal the user
 	var user identity.UserWithPassword
 	if err := json.Unmarshal([]byte(userJsonBytes), &user); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal user")
+		logger.Error().Err(err).Msg("failed to unmarshal user")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -70,13 +72,13 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	// Compare the password
 	valid, err := s.hasher.Compare(login.Password, user.Password)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to compare passwords")
+		logger.Error().Err(err).Msg("failed to compare passwords")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	if !valid {
-		log.Error().Msg("invalid password")
+		logger.Error().Msg("invalid password")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}

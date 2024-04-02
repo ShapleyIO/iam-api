@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ShapleyIO/iam/api/middleware"
 	v1 "github.com/ShapleyIO/iam/api/v1"
 	"github.com/ShapleyIO/iam/internal/passwordhasher"
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog/log"
 )
 
 type ServiceIdentity struct {
@@ -26,12 +26,13 @@ func NewServiceIdentity(redisClient *redis.Client, hasher passwordhasher.Passwor
 // Create a User
 // (POST /v1/user)
 func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
-	// Implementation goes here
+	logger := middleware.GetLogger(r.Context())
+
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to read request body")
+		logger.Error().Err(err).Msg("failed to read request body")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -39,28 +40,28 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Unmarshal the request body
 	var user v1.User
 	if err := json.Unmarshal(body, &user); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal request body")
+		logger.Error().Err(err).Msg("failed to unmarshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// Check if the user already exists
 	if s.redisClient.Exists(r.Context(), string(user.Email)).Val() == 1 {
-		log.Error().Str("email", string(user.Email)).Msg("user already exists")
+		logger.Error().Str("email", string(user.Email)).Msg("user already exists")
 		w.WriteHeader(http.StatusConflict)
 	}
 
 	// JSON Marshal the user
 	userJson, err := json.Marshal(user)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to marshal user")
+		logger.Error().Err(err).Msg("failed to marshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// Create the user
 	if err := s.redisClient.Set(r.Context(), string(user.Email), userJson, 0).Err(); err != nil {
-		log.Error().Err(err).Msg("failed to create user")
+		logger.Error().Err(err).Msg("failed to create user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -69,12 +70,13 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 // Update a User's Password
 // (PUT /v1/user/password/{user_id})
 func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Request) {
-	// Implementation goes here
+	logger := middleware.GetLogger(r.Context())
+
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to read request body")
+		logger.Error().Err(err).Msg("failed to read request body")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -82,7 +84,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	// Unmarshal the request body
 	var login v1.Login
 	if err := json.Unmarshal(body, &login); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal request body")
+		logger.Error().Err(err).Msg("failed to unmarshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -90,7 +92,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	// Get the user
 	userJson, err := s.redisClient.Get(r.Context(), string(login.Email)).Result()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get user")
+		logger.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -98,7 +100,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	// Unmarshal the user
 	var user UserWithPassword
 	if err := json.Unmarshal([]byte(userJson), &user); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal user")
+		logger.Error().Err(err).Msg("failed to unmarshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -109,13 +111,13 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	// Marshal the user
 	userJsonBytes, err := json.Marshal(user)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to marshal user")
+		logger.Error().Err(err).Msg("failed to marshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.redisClient.Set(r.Context(), string(login.Email), userJsonBytes, 0).Err(); err != nil {
-		log.Error().Err(err).Msg("failed to update user")
+		logger.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -126,9 +128,11 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 // Delete a User
 // (DELETE /v1/user/{user_id})
 func (s *ServiceIdentity) DeleteUser(w http.ResponseWriter, r *http.Request, params v1.DeleteUserParams) {
+	logger := middleware.GetLogger(r.Context())
+
 	// Delete user
 	if err := s.redisClient.Del(r.Context(), string(params.Email)).Err(); err != nil {
-		log.Error().Err(err).Msg("failed to delete user")
+		logger.Error().Err(err).Msg("failed to delete user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -139,10 +143,12 @@ func (s *ServiceIdentity) DeleteUser(w http.ResponseWriter, r *http.Request, par
 // Get a User
 // (GET /v1/user/{user_id})
 func (s *ServiceIdentity) GetUser(w http.ResponseWriter, r *http.Request, params v1.GetUserParams) {
+	logger := middleware.GetLogger(r.Context())
+
 	// Get user
 	userJson, err := s.redisClient.Get(r.Context(), string(params.Email)).Result()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get user")
+		logger.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -150,17 +156,17 @@ func (s *ServiceIdentity) GetUser(w http.ResponseWriter, r *http.Request, params
 	// Remove the password from the user
 	var user UserWithPassword
 	if err := json.Unmarshal([]byte(userJson), &user); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal user")
+		logger.Error().Err(err).Msg("failed to unmarshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Info().Str("email", string(params.Email)).Str("password", user.Password).Msg("user found")
+	logger.Info().Str("email", string(params.Email)).Str("password", user.Password).Msg("user found")
 
 	user.Password = ""
 	userJsonBytes, err := json.Marshal(user)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to marshal user")
+		logger.Error().Err(err).Msg("failed to marshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -173,12 +179,14 @@ func (s *ServiceIdentity) GetUser(w http.ResponseWriter, r *http.Request, params
 // Update a User
 // (PUT /v1/user/{user_id})
 func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, params v1.UpdateUserParams) {
+	logger := middleware.GetLogger(r.Context())
+
 	// Update User
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to read request body")
+		logger.Error().Err(err).Msg("failed to read request body")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -186,7 +194,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	// Unmarshal the request body
 	var user v1.User
 	if err := json.Unmarshal(body, &user); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal request body")
+		logger.Error().Err(err).Msg("failed to unmarshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -194,7 +202,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	// Get the user
 	userJson, err := s.redisClient.Get(r.Context(), string(params.Email)).Result()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get user")
+		logger.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -202,7 +210,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	// Unmarshal the user
 	var userWithPassword UserWithPassword
 	if err := json.Unmarshal([]byte(userJson), &userWithPassword); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal user")
+		logger.Error().Err(err).Msg("failed to unmarshal user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -212,7 +220,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	userWithPassword.LastName = user.LastName
 	userWithPassword.Email = user.Email
 	if err := s.redisClient.Set(r.Context(), string(params.Email), userWithPassword, 0).Err(); err != nil {
-		log.Error().Err(err).Msg("failed to update user")
+		logger.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
