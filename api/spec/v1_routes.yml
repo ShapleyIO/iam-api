@@ -180,7 +180,7 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: "ready"
+                    example: "dead"
   /v1/health/ready:
     get:
       tags:
@@ -197,8 +197,8 @@ paths:
                 type: object
                 properties:
                   status:
-                    type: boolean
-                    example: true
+                    type: string
+                    example: "ready"
         '503':
           description: Service is Not Ready
           content:
@@ -207,8 +207,8 @@ paths:
                 type: object
                 properties:
                   status:
-                    type: boolean
-                    example: false
+                    type: string
+                    example: "not ready"
 
     
 components:
@@ -238,13 +238,3 @@ components:
       required:
         - email
         - password
-  
-  securitySchemes:
-    OAuth2:
-      type: oauth2
-      flows:
-        authorizationCode:
-          authorizationUrl: https://sso.shapley.io/oauth2/auth
-          tokenUrl: https://sso.shapley.io/oauth2/token
-          scopes:
-            featureflags:read: Ability to Read Feature Flags
