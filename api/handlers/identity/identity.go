@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	v1 "github.com/ShapleyIO/iam/api/v1"
+	"github.com/ShapleyIO/iam/internal/passwordhasher"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
 )
@@ -14,12 +15,14 @@ import (
 type ServiceIdentity struct {
 	ctx         context.Context
 	redisClient *redis.Client
+	hasher      passwordhasher.PasswordHasher
 }
 
-func NewServiceIdentity(redisClient *redis.Client) *ServiceIdentity {
+func NewServiceIdentity(redisClient *redis.Client, hasher passwordhasher.PasswordHasher) *ServiceIdentity {
 	return &ServiceIdentity{
 		ctx:         context.Background(),
 		redisClient: redisClient,
+		hasher:      hasher,
 	}
 }
 
@@ -50,8 +53,16 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 	}
 
+	// JSON Marshal the user
+	userJson, err := json.Marshal(user)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal user")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	// Create the user
-	if err := s.redisClient.Set(s.ctx, string(user.Email), user, 0).Err(); err != nil {
+	if err := s.redisClient.Set(s.ctx, string(user.Email), userJson, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to create user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -96,8 +107,17 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Update the user's password
-	user.Password = password.Password
-	if err := s.redisClient.Set(s.ctx, string(params.Email), user, 0).Err(); err != nil {
+	user.Password = s.hasher.HashPassword(password.Password)
+
+	// Marshal the user
+	userJsonBytes, err := json.Marshal(user)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal user")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.redisClient.Set(s.ctx, string(params.Email), userJsonBytes, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -130,9 +150,27 @@ func (s *ServiceIdentity) GetUser(w http.ResponseWriter, r *http.Request, params
 		return
 	}
 
+	// Remove the password from the user
+	var user UserWithPassword
+	if err := json.Unmarshal([]byte(userJson), &user); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal user")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	log.Info().Str("email", string(params.Email)).Str("password", user.Password).Msg("user found")
+
+	user.Password = ""
+	userJsonBytes, err := json.Marshal(user)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal user")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(userJson))
+	w.Write(userJsonBytes)
 }
 
 // Update a User

@@ -9,6 +9,9 @@ services:
     #   - backend
     ports:
       - "8080:8080"
+    environment:
+      - IAM_REDIS_HOST=redis
+      - IAM_REDIS_PORT=6379
     # env_file:
     #   - some/path
     # volumes:
