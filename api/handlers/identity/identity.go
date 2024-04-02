@@ -71,7 +71,7 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 // Update a User's Password
 // (PUT /v1/user/password/{user_id})
-func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Request, params v1.UpdateUserPasswordParams) {
+func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Request) {
 	// Implementation goes here
 	defer r.Body.Close()
 
@@ -83,15 +83,15 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Unmarshal the request body
-	var password v1.Password
-	if err := json.Unmarshal(body, &password); err != nil {
+	var login v1.Login
+	if err := json.Unmarshal(body, &login); err != nil {
 		log.Error().Err(err).Msg("failed to unmarshal request body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// Get the user
-	userJson, err := s.redisClient.Get(s.ctx, string(params.Email)).Result()
+	userJson, err := s.redisClient.Get(s.ctx, string(login.Email)).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
@@ -107,7 +107,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Update the user's password
-	user.Password = s.hasher.HashPassword(password.Password)
+	user.Password = s.hasher.HashPassword(login.Password)
 
 	// Marshal the user
 	userJsonBytes, err := json.Marshal(user)
@@ -117,7 +117,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := s.redisClient.Set(s.ctx, string(params.Email), userJsonBytes, 0).Err(); err != nil {
+	if err := s.redisClient.Set(s.ctx, string(login.Email), userJsonBytes, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return

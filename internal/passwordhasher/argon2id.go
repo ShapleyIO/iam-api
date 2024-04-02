@@ -47,7 +47,7 @@ func (ph *ArgonHasher) HashPassword(password string) string {
 	return fullHash
 }
 
-func (ph *ArgonHasher) ComparePasswordAndHash(password, encodedHash string) (bool, error) {
+func (ph *ArgonHasher) Compare(password, encodedHash string) (bool, error) {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
 		return false, fmt.Errorf("invalid hash format")

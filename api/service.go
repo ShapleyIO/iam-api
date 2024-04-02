@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 
+	"github.com/ShapleyIO/iam/api/handlers/authn"
 	"github.com/ShapleyIO/iam/api/handlers/identity"
 	v1 "github.com/ShapleyIO/iam/api/v1"
 	"github.com/ShapleyIO/iam/internal/config"
@@ -12,6 +13,7 @@ import (
 
 type Handlers struct {
 	*identity.ServiceIdentity
+	*authn.ServiceAuthN
 }
 
 var _ v1.ServerInterface = (*Handlers)(nil)
@@ -30,6 +32,7 @@ func NewHandlers(cfg *config.Config) (*Handlers, error) {
 	ph := passwordhasher.NewArgonHasher(cfg)
 
 	handlers.ServiceIdentity = identity.NewServiceIdentity(redisClient, ph)
+	handlers.ServiceAuthN = authn.NewServiceAuthN(redisClient, ph)
 
 	return handlers, nil
 }

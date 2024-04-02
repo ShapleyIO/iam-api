@@ -2,5 +2,5 @@ package passwordhasher
 
 type PasswordHasher interface {
 	HashPassword(password string) string
-	ComparePasswordAndHash(password, encodedHash string) (bool, error)
+	Compare(password, encodedHash string) (bool, error)
 }

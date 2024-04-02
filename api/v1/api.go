@@ -22,9 +22,10 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Password defines model for Password.
-type Password struct {
-	Password string `json:"password"`
+// Login defines model for Login.
+type Login struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
 }
 
 // User defines model for User.
@@ -52,11 +53,8 @@ type UpdateUserParams struct {
 	Email openapi_types.Email `form:"email" json:"email"`
 }
 
-// UpdateUserPasswordParams defines parameters for UpdateUserPassword.
-type UpdateUserPasswordParams struct {
-	// Email Email of user to update password
-	Email openapi_types.Email `form:"email" json:"email"`
-}
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = Login
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = User
@@ -65,7 +63,7 @@ type CreateUserJSONRequestBody = User
 type UpdateUserJSONRequestBody = User
 
 // UpdateUserPasswordJSONRequestBody defines body for UpdateUserPassword for application/json ContentType.
-type UpdateUserPasswordJSONRequestBody = Password
+type UpdateUserPasswordJSONRequestBody = Login
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -140,6 +138,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// LoginWithBody request with any body
+	LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteUser request
 	DeleteUser(ctx context.Context, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -157,9 +160,33 @@ type ClientInterface interface {
 	UpdateUser(ctx context.Context, params *UpdateUserParams, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateUserPasswordWithBody request with any body
-	UpdateUserPasswordWithBody(ctx context.Context, params *UpdateUserPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateUserPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateUserPassword(ctx context.Context, params *UpdateUserPasswordParams, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateUserPassword(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) DeleteUser(ctx context.Context, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -234,8 +261,8 @@ func (c *Client) UpdateUser(ctx context.Context, params *UpdateUserParams, body 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateUserPasswordWithBody(ctx context.Context, params *UpdateUserPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateUserPasswordRequestWithBody(c.Server, params, contentType, body)
+func (c *Client) UpdateUserPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserPasswordRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -246,8 +273,8 @@ func (c *Client) UpdateUserPasswordWithBody(ctx context.Context, params *UpdateU
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateUserPassword(ctx context.Context, params *UpdateUserPasswordParams, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateUserPasswordRequest(c.Server, params, body)
+func (c *Client) UpdateUserPassword(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserPasswordRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -256,6 +283,46 @@ func (c *Client) UpdateUserPassword(ctx context.Context, params *UpdateUserPassw
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewLoginRequest calls the generic Login builder with application/json body
+func NewLoginRequest(server string, body LoginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLoginRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLoginRequestWithBody generates requests for Login with any type of body
+func NewLoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/login")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewDeleteUserRequest generates requests for DeleteUser
@@ -447,18 +514,18 @@ func NewUpdateUserRequestWithBody(server string, params *UpdateUserParams, conte
 }
 
 // NewUpdateUserPasswordRequest calls the generic UpdateUserPassword builder with application/json body
-func NewUpdateUserPasswordRequest(server string, params *UpdateUserPasswordParams, body UpdateUserPasswordJSONRequestBody) (*http.Request, error) {
+func NewUpdateUserPasswordRequest(server string, body UpdateUserPasswordJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateUserPasswordRequestWithBody(server, params, "application/json", bodyReader)
+	return NewUpdateUserPasswordRequestWithBody(server, "application/json", bodyReader)
 }
 
 // NewUpdateUserPasswordRequestWithBody generates requests for UpdateUserPassword with any type of body
-func NewUpdateUserPasswordRequestWithBody(server string, params *UpdateUserPasswordParams, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateUserPasswordRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -474,24 +541,6 @@ func NewUpdateUserPasswordRequestWithBody(server string, params *UpdateUserPassw
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, params.Email); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("PUT", queryURL.String(), body)
@@ -547,6 +596,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// LoginWithBodyWithResponse request with any body
+	LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+
+	LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+
 	// DeleteUserWithResponse request
 	DeleteUserWithResponse(ctx context.Context, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error)
 
@@ -564,9 +618,30 @@ type ClientWithResponsesInterface interface {
 	UpdateUserWithResponse(ctx context.Context, params *UpdateUserParams, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
 
 	// UpdateUserPasswordWithBodyWithResponse request with any body
-	UpdateUserPasswordWithBodyWithResponse(ctx context.Context, params *UpdateUserPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
+	UpdateUserPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
 
-	UpdateUserPasswordWithResponse(ctx context.Context, params *UpdateUserPasswordParams, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
+	UpdateUserPasswordWithResponse(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
+}
+
+type LoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r LoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type DeleteUserResponse struct {
@@ -677,6 +752,23 @@ func (r UpdateUserPasswordResponse) StatusCode() int {
 	return 0
 }
 
+// LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
+func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.LoginWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginResponse(rsp)
+}
+
+func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.Login(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginResponse(rsp)
+}
+
 // DeleteUserWithResponse request returning *DeleteUserResponse
 func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error) {
 	rsp, err := c.DeleteUser(ctx, params, reqEditors...)
@@ -730,20 +822,36 @@ func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, params
 }
 
 // UpdateUserPasswordWithBodyWithResponse request with arbitrary body returning *UpdateUserPasswordResponse
-func (c *ClientWithResponses) UpdateUserPasswordWithBodyWithResponse(ctx context.Context, params *UpdateUserPasswordParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error) {
-	rsp, err := c.UpdateUserPasswordWithBody(ctx, params, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateUserPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error) {
+	rsp, err := c.UpdateUserPasswordWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateUserPasswordResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateUserPasswordWithResponse(ctx context.Context, params *UpdateUserPasswordParams, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error) {
-	rsp, err := c.UpdateUserPassword(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) UpdateUserPasswordWithResponse(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error) {
+	rsp, err := c.UpdateUserPassword(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateUserPasswordResponse(rsp)
+}
+
+// ParseLoginResponse parses an HTTP response from a LoginWithResponse call
+func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
 }
 
 // ParseDeleteUserResponse parses an HTTP response from a DeleteUserWithResponse call
@@ -858,6 +966,9 @@ func ParseUpdateUserPasswordResponse(rsp *http.Response) (*UpdateUserPasswordRes
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login
+	// (POST /v1/login)
+	Login(w http.ResponseWriter, r *http.Request)
 	// Delete a User
 	// (DELETE /v1/user)
 	DeleteUser(w http.ResponseWriter, r *http.Request, params DeleteUserParams)
@@ -872,12 +983,18 @@ type ServerInterface interface {
 	UpdateUser(w http.ResponseWriter, r *http.Request, params UpdateUserParams)
 	// Update a User's Password
 	// (PUT /v1/user/password)
-	UpdateUserPassword(w http.ResponseWriter, r *http.Request, params UpdateUserPasswordParams)
+	UpdateUserPassword(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Login
+// (POST /v1/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Delete a User
 // (DELETE /v1/user)
@@ -905,7 +1022,7 @@ func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, params
 
 // Update a User's Password
 // (PUT /v1/user/password)
-func (_ Unimplemented) UpdateUserPassword(w http.ResponseWriter, r *http.Request, params UpdateUserPasswordParams) {
+func (_ Unimplemented) UpdateUserPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -917,6 +1034,21 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
 
 // DeleteUser operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -1042,28 +1174,8 @@ func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Req
 func (siw *ServerInterfaceWrapper) UpdateUserPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params UpdateUserPasswordParams
-
-	// ------------- Required query parameter "email" -------------
-
-	if paramValue := r.URL.Query().Get("email"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "email"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "email", r.URL.Query(), &params.Email)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
-		return
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateUserPassword(w, r, params)
+		siw.Handler.UpdateUserPassword(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1187,6 +1299,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/user", wrapper.DeleteUser)
 	})
 	r.Group(func(r chi.Router) {
@@ -1208,20 +1323,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+RWwY7bNhD9FWJaoBdCsp1DA57qJN3AhzRBi710YRSMNLKZlUiGHDlQF/r3gpQsy7a8",
-	"3TWwRYteDIJvOMP35omeB8hMZY1GTR7EA/hsi5WMy0/S+2/G5WFtnbHoSGFE7AihxiII8OSU3kDbcnD4",
-	"tVYOcxB3h8g130eaz18wI2g53Hp058mxkqoMi8K4ShKIfoefluJQKOfpDy0rnLgJh1JeRk/uOco0Psf7",
-	"2ue3bzl4zGqnqPktSNbd/eOypu0iXr403+KWrGlrnPpTkjL6rcnxbPPWlSBgS2S9SFPvTeK30pbYJMqk",
-	"JoQu0vALHHxmbFepQEm1w6KUGy8cyhwELD+rUlHDyLBfUebspothNyEoCELmHp9ULgZGknvacR/asKV0",
-	"YcIVMqNJZjTqGdzjTumfDvlC0Rx95pQNTEHAG+mRrZYf2PLTir3DQmkVEQ6kqAylehA47ND57tQsmSXz",
-	"kMxY1NIqEPAqmSWvgIOVtI2KpLt5WveOyrFEwm41rv4u7jPJovViOhd7sMoHtIesdLJCQudB3J3m+Tnw",
-	"ZaZgoWDQuy8YxAEBX2t0DXDovDf492A4cjXy/lt7itXbdTjtrdG+a/9iNj9n90G6ex+pscI4FukEJJq1",
-	"rirpmgkNKJhD3MEqR02KGli3HDZI5/nfI12S7j3SVbqFOv+gaLO9b1FHftLaUmWRRvrFhys+jAp877AA",
-	"Ad+lhycy7d/HNLKNn8MxwxtT65z16Fj2I/EmNbfGT4j+1qG8bNkO7aEgFXp6Y/LmxXkuuxb2z+Fpm9p/",
-	"k/KnCk6LX09of2vzR7Tv0KtsX8ejL+z8/7MZut5M2uG0qRN2aPnwb5KOZ52/N8kPng1j02W/jEKu8Q2z",
-	"h/P/LQMNxCdNtKf1TCNd7jwb1btogeOWTbkhznput+9RfTRAKVklRwPPZABtHg86HsMuBTyWRaRpaTJZ",
-	"bo0n8Xr2enaOzxc/JnGS6vH1QPdUxI9743omXXxXK6nlRulNlMwfvDboFKo9KwkLs3I43DnpkDLs/3Jl",
-	"vmGoPk73O7Tr9q8AAAD//0JU9NHrDAAA",
+	"H4sIAAAAAAAC/+RXX2/bRgz/KgduwF4Ey3EeVuhpbroUAdYlaJCXBcZwlSj7Gunuekel8Ap994EnWZZk",
+	"KcuydRuwl0Qgefzz448M8wVSU1qjUZOH5Av4dIelDJ8/ma3S/GGdsehIYRBjKVXBH7lxpSRIWkkEtLcI",
+	"CXhySm+hjsBK7z8bl7H1SFlH4PBTpRxmkNx3LroXm86d+fARU2J3dx7dX8onV87Tr1qWOJFRBIWc147y",
+	"7Xnqv4va2KfZ1xF4TCunaH/LEDe5X68r2q1C8oX5HESyop1x6jdJyugLk+GJ8M4VkMCOyPokjr03C7+T",
+	"tsD9QpnYsOkq5p8QgU+NbSLlKKlymBdy6xOHMoME1h9UoWgvyIj3KDNx2diISzZiQMg84LPCBcNQ5KHs",
+	"IIeaRUrnhlNIjSaZUq9n8ICPSv9w9MdBM/SpU5YrhQReS4/iav1OrG+uxBvMlVZBEwEpKjhUq4QIHtH5",
+	"5tVysVycsTNjUUurIIHzxXJxHhhGu4BI/HgWFx3FjQ+JDYM3ExC8uAD9VdaTMh/Q02uT7Q/loQ5epLWF",
+	"SsOL+KM3+jhY/PWtwxwS+CY+Tl7cjl3c+A6wDVNZi5CraPnUZyO5CgM9vTXaN+0+X65Oy3mPmXKYEjf8",
+	"9vaaf10YTUpXKEJgceNMit5DBDuUGbp2DzSlzDtURj/H5xGCblQrp04HtQ71+6ospdv3ACemZXIPPDQ/",
+	"w4aNuIlVuxYyLJDwNMs3QS6kCPtj3M1G26qsdLJECoXfj/38yKQVJhcckAttAzLDIYFPFbo9RNAskG4J",
+	"Dfs0CcLMvqo3o6aulmen1b2T7sGH0kRunAjlsGYI4RiDA5RXGWpStIdNHcEWJ2bgLdIcdG+RXoQbx/kH",
+	"QVv+bdMZqp0YzktT6Uy02j7sA/AmMZ9ePBcO5TxlG22r+hpbaK7OddPCZ+6gfxX5MYLT4FcT2N/Z7Ans",
+	"G+2LaF+Fp1+Z+f9nMjS9maTDuKkTdOj9NYn7h+sfk+Q7L24OD+b50jP5L18ObaPmkT3W+gTEQ0im0A4H",
+	"sXs8zE41uDKVLBeDq3DSgLZPGw1v1TmDp7wkcVyYVBY74yl5tXy1PNWfrb5fhHOz1W+6cscgXh+I4YV0",
+	"YW+VUsut0tsAmT8ugw4njvannAi+jfhxe7J1Lpub6WX+uv88hu5+gXpT/x4AAP//HlD6eUAOAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
