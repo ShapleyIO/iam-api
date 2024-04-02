@@ -20,6 +20,9 @@ tags:
     description: Operations around managing User Authentication
   - name: AuthZ
     description: Operations around managing User Authorization
+  - name: Health
+    description: Operations around managing Health Checks
+
 paths:
   /v1/user:
     post:
@@ -149,6 +152,64 @@ paths:
               schema:
                 type: string
                 format: uri
+
+  /v1/health/alive:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Health Check
+      operationId: healthAlive
+      responses:
+        '200':
+          description: Service is Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "alive"
+        '503':
+          description: Service is Dead
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ready"
+  /v1/health/ready:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Health Check
+      operationId: healthReady
+      responses:
+        '200':
+          description: Service is Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    example: true
+        '503':
+          description: Service is Not Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    example: false
+
     
 components:
   schemas:

@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,14 +12,12 @@ import (
 )
 
 type ServiceIdentity struct {
-	ctx         context.Context
 	redisClient *redis.Client
 	hasher      passwordhasher.PasswordHasher
 }
 
 func NewServiceIdentity(redisClient *redis.Client, hasher passwordhasher.PasswordHasher) *ServiceIdentity {
 	return &ServiceIdentity{
-		ctx:         context.Background(),
 		redisClient: redisClient,
 		hasher:      hasher,
 	}
@@ -48,7 +45,7 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the user already exists
-	if s.redisClient.Exists(s.ctx, string(user.Email)).Val() == 1 {
+	if s.redisClient.Exists(r.Context(), string(user.Email)).Val() == 1 {
 		log.Error().Str("email", string(user.Email)).Msg("user already exists")
 		w.WriteHeader(http.StatusConflict)
 	}
@@ -62,7 +59,7 @@ func (s *ServiceIdentity) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the user
-	if err := s.redisClient.Set(s.ctx, string(user.Email), userJson, 0).Err(); err != nil {
+	if err := s.redisClient.Set(r.Context(), string(user.Email), userJson, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to create user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -91,7 +88,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get the user
-	userJson, err := s.redisClient.Get(s.ctx, string(login.Email)).Result()
+	userJson, err := s.redisClient.Get(r.Context(), string(login.Email)).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
@@ -117,7 +114,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := s.redisClient.Set(s.ctx, string(login.Email), userJsonBytes, 0).Err(); err != nil {
+	if err := s.redisClient.Set(r.Context(), string(login.Email), userJsonBytes, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -130,7 +127,7 @@ func (s *ServiceIdentity) UpdateUserPassword(w http.ResponseWriter, r *http.Requ
 // (DELETE /v1/user/{user_id})
 func (s *ServiceIdentity) DeleteUser(w http.ResponseWriter, r *http.Request, params v1.DeleteUserParams) {
 	// Delete user
-	if err := s.redisClient.Del(s.ctx, string(params.Email)).Err(); err != nil {
+	if err := s.redisClient.Del(r.Context(), string(params.Email)).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to delete user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -143,7 +140,7 @@ func (s *ServiceIdentity) DeleteUser(w http.ResponseWriter, r *http.Request, par
 // (GET /v1/user/{user_id})
 func (s *ServiceIdentity) GetUser(w http.ResponseWriter, r *http.Request, params v1.GetUserParams) {
 	// Get user
-	userJson, err := s.redisClient.Get(s.ctx, string(params.Email)).Result()
+	userJson, err := s.redisClient.Get(r.Context(), string(params.Email)).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
@@ -195,7 +192,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	}
 
 	// Get the user
-	userJson, err := s.redisClient.Get(s.ctx, string(params.Email)).Result()
+	userJson, err := s.redisClient.Get(r.Context(), string(params.Email)).Result()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get user")
 		w.WriteHeader(http.StatusNotFound)
@@ -214,7 +211,7 @@ func (s *ServiceIdentity) UpdateUser(w http.ResponseWriter, r *http.Request, par
 	userWithPassword.FirstName = user.FirstName
 	userWithPassword.LastName = user.LastName
 	userWithPassword.Email = user.Email
-	if err := s.redisClient.Set(s.ctx, string(params.Email), userWithPassword, 0).Err(); err != nil {
+	if err := s.redisClient.Set(r.Context(), string(params.Email), userWithPassword, 0).Err(); err != nil {
 		log.Error().Err(err).Msg("failed to update user")
 		w.WriteHeader(http.StatusInternalServerError)
 		return

@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/ShapleyIO/iam/api/middleware"
 	apiV1 "github.com/ShapleyIO/iam/api/v1"
 	"github.com/ShapleyIO/iam/internal/config"
 	"github.com/ShapleyIO/iam/internal/connect"
@@ -40,6 +41,7 @@ func main() {
 
 	// Setup Middlewares
 	baseRouter.Use(chi_middleware.OapiRequestValidatorWithOptions(swaggerApi, middlewareOptions))
+	baseRouter.Use(middleware.Logger)
 
 	apiV1.HandlerFromMux(services.Handlers(), baseRouter)
 

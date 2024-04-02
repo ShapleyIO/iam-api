@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ShapleyIO/iam/api/handlers/authn"
+	"github.com/ShapleyIO/iam/api/handlers/health"
 	"github.com/ShapleyIO/iam/api/handlers/identity"
 	v1 "github.com/ShapleyIO/iam/api/v1"
 	"github.com/ShapleyIO/iam/internal/config"
@@ -14,6 +15,7 @@ import (
 type Handlers struct {
 	*identity.ServiceIdentity
 	*authn.ServiceAuthN
+	*health.ServiceHealth
 }
 
 var _ v1.ServerInterface = (*Handlers)(nil)
@@ -33,6 +35,7 @@ func NewHandlers(cfg *config.Config) (*Handlers, error) {
 
 	handlers.ServiceIdentity = identity.NewServiceIdentity(redisClient, ph)
 	handlers.ServiceAuthN = authn.NewServiceAuthN(redisClient, ph)
+	handlers.ServiceHealth = health.NewServiceHealth(redisClient)
 
 	return handlers, nil
 }

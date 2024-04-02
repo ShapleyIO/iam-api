@@ -138,6 +138,12 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// HealthAlive request
+	HealthAlive(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// HealthReady request
+	HealthReady(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LoginWithBody request with any body
 	LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -163,6 +169,30 @@ type ClientInterface interface {
 	UpdateUserPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUserPassword(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) HealthAlive(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHealthAliveRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) HealthReady(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHealthReadyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -283,6 +313,60 @@ func (c *Client) UpdateUserPassword(ctx context.Context, body UpdateUserPassword
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewHealthAliveRequest generates requests for HealthAlive
+func NewHealthAliveRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/alive")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewHealthReadyRequest generates requests for HealthReady
+func NewHealthReadyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/ready")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewLoginRequest calls the generic Login builder with application/json body
@@ -596,6 +680,12 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// HealthAliveWithResponse request
+	HealthAliveWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthAliveResponse, error)
+
+	// HealthReadyWithResponse request
+	HealthReadyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthReadyResponse, error)
+
 	// LoginWithBodyWithResponse request with any body
 	LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
@@ -621,6 +711,60 @@ type ClientWithResponsesInterface interface {
 	UpdateUserPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
 
 	UpdateUserPasswordWithResponse(ctx context.Context, body UpdateUserPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserPasswordResponse, error)
+}
+
+type HealthAliveResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Status *string `json:"status,omitempty"`
+	}
+	JSON503 *struct {
+		Status *string `json:"status,omitempty"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r HealthAliveResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r HealthAliveResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type HealthReadyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Status *bool `json:"status,omitempty"`
+	}
+	JSON503 *struct {
+		Status *bool `json:"status,omitempty"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r HealthReadyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r HealthReadyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type LoginResponse struct {
@@ -752,6 +896,24 @@ func (r UpdateUserPasswordResponse) StatusCode() int {
 	return 0
 }
 
+// HealthAliveWithResponse request returning *HealthAliveResponse
+func (c *ClientWithResponses) HealthAliveWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthAliveResponse, error) {
+	rsp, err := c.HealthAlive(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseHealthAliveResponse(rsp)
+}
+
+// HealthReadyWithResponse request returning *HealthReadyResponse
+func (c *ClientWithResponses) HealthReadyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthReadyResponse, error) {
+	rsp, err := c.HealthReady(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseHealthReadyResponse(rsp)
+}
+
 // LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
 func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
 	rsp, err := c.LoginWithBody(ctx, contentType, body, reqEditors...)
@@ -836,6 +998,80 @@ func (c *ClientWithResponses) UpdateUserPasswordWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseUpdateUserPasswordResponse(rsp)
+}
+
+// ParseHealthAliveResponse parses an HTTP response from a HealthAliveWithResponse call
+func ParseHealthAliveResponse(rsp *http.Response) (*HealthAliveResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &HealthAliveResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Status *string `json:"status,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest struct {
+			Status *string `json:"status,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseHealthReadyResponse parses an HTTP response from a HealthReadyWithResponse call
+func ParseHealthReadyResponse(rsp *http.Response) (*HealthReadyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &HealthReadyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Status *bool `json:"status,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest struct {
+			Status *bool `json:"status,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseLoginResponse parses an HTTP response from a LoginWithResponse call
@@ -966,6 +1202,12 @@ func ParseUpdateUserPasswordResponse(rsp *http.Response) (*UpdateUserPasswordRes
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Health Check
+	// (GET /v1/health/alive)
+	HealthAlive(w http.ResponseWriter, r *http.Request)
+	// Health Check
+	// (GET /v1/health/ready)
+	HealthReady(w http.ResponseWriter, r *http.Request)
 	// Login
 	// (POST /v1/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -989,6 +1231,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Health Check
+// (GET /v1/health/alive)
+func (_ Unimplemented) HealthAlive(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Health Check
+// (GET /v1/health/ready)
+func (_ Unimplemented) HealthReady(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Login
 // (POST /v1/login)
@@ -1034,6 +1288,36 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// HealthAlive operation middleware
+func (siw *ServerInterfaceWrapper) HealthAlive(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.HealthAlive(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// HealthReady operation middleware
+func (siw *ServerInterfaceWrapper) HealthReady(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.HealthReady(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
@@ -1299,6 +1583,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/health/alive", wrapper.HealthAlive)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/health/ready", wrapper.HealthReady)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/login", wrapper.Login)
 	})
 	r.Group(func(r chi.Router) {
@@ -1323,21 +1613,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"kler6u8AAAD//7SBdtYtEgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

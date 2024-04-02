@@ -68,7 +68,7 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Compare the password
-	valid, err := s.hasher.Compare(string(login.Password), user.Password)
+	valid, err := s.hasher.Compare(login.Password, user.Password)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to compare passwords")
 		w.WriteHeader(http.StatusUnauthorized)
