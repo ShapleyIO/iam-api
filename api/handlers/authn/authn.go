@@ -86,3 +86,8 @@ func (s *ServiceAuthN) Login(w http.ResponseWriter, r *http.Request) {
 	// Redirect to SSO
 	http.Redirect(w, r, "https://sso.shapley.io/confirm", http.StatusFound)
 }
+
+// Logout a User
+// (POST /v1/logout)
+func (s *ServiceAuthN) Logout(w http.ResponseWriter, r *http.Request) {
+}

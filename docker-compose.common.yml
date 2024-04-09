@@ -12,3 +12,10 @@ services:
     tty: true
   redis:
     image: redis:bookworm
+    tty: true
+  postgres:
+    image: postgres:14.0
+    tty: true
+  hydra:
+    image: oryd/hydra:v2.2.0
+    tty: true

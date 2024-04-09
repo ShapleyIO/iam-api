@@ -230,11 +230,14 @@ components:
     Login:
       type: object
       properties:
+        login_verifier:
+          type: string
         email:
           type: string
           format: email
         password:
           type: string
       required:
+        - login_verifier
         - email
         - password

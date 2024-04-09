@@ -5,17 +5,14 @@ services:
     extends:
       file: docker-compose.common.yml
       service: api
-    # networks:
-    #   - backend
     ports:
       - "8080:8080"
     environment:
       - IAM_REDIS_HOST=redis
       - IAM_REDIS_PORT=6379
-    # env_file:
-    #   - some/path
-    # volumes:
-    #   - some/path:other/path
+    networks:
+      - backend
+  
   redis:
     container_name: redis
     extends:
@@ -24,6 +21,46 @@ services:
     ports:
       - "6379:6379"
 
-# networks:
-#   backend:
-#     external: true
+  postgres:
+    container_name: postgres
+    extends:
+      file: docker-compose.common.yml
+      service: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=iam
+      - POSTGRES_USER=iam
+      - POSTGRES_PASSWORD=iam
+    networks:
+      - backend
+
+  hydra:
+    container_name: hydra
+    extends:
+      file: docker-compose.common.yml
+      service: hydra
+    ports:
+      - "4444:4444"
+      - "4445:4445"
+    environment:
+      - DSN=postgres://iam:iam@postgres:5432/iam?sslmode=disable
+    depends_on:
+      - postgres
+      - hydra-migrate
+    networks:
+      - backend
+
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    environment:
+      - DSN=postgres://iam:iam@postgres:5432/iam?sslmode=disable
+    command: migrate sql -e --yes
+    depends_on:
+      - postgres
+    restart: on-failure
+    networks:
+      - backend
+
+networks:
+  backend:
