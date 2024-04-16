@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/ShapleyIO/iam/api/handlers/identity"
-	"github.com/ShapleyIO/iam/api/middleware"
-	v1 "github.com/ShapleyIO/iam/api/v1"
-	"github.com/ShapleyIO/iam/internal/passwordhasher"
+	"github.com/ShapleyIO/iam-api/api/handlers/identity"
+	"github.com/ShapleyIO/iam-api/api/middleware"
+	v1 "github.com/ShapleyIO/iam-api/api/v1"
+	"github.com/ShapleyIO/iam-api/internal/passwordhasher"
 	"github.com/redis/go-redis/v9"
 )
 

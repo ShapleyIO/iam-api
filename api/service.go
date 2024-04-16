@@ -3,12 +3,12 @@ package api
 import (
 	"fmt"
 
-	"github.com/ShapleyIO/iam/api/handlers/authn"
-	"github.com/ShapleyIO/iam/api/handlers/health"
-	"github.com/ShapleyIO/iam/api/handlers/identity"
-	v1 "github.com/ShapleyIO/iam/api/v1"
-	"github.com/ShapleyIO/iam/internal/config"
-	"github.com/ShapleyIO/iam/internal/passwordhasher"
+	"github.com/ShapleyIO/iam-api/api/handlers/authn"
+	"github.com/ShapleyIO/iam-api/api/handlers/health"
+	"github.com/ShapleyIO/iam-api/api/handlers/identity"
+	v1 "github.com/ShapleyIO/iam-api/api/v1"
+	"github.com/ShapleyIO/iam-api/internal/config"
+	"github.com/ShapleyIO/iam-api/internal/passwordhasher"
 	"github.com/redis/go-redis/v9"
 )
 

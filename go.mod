@@ -1,4 +1,4 @@
-module github.com/ShapleyIO/iam
+module github.com/ShapleyIO/iam-api
 
 go 1.22.1
 

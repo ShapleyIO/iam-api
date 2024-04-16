@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ShapleyIO/iam/internal/config"
+	"github.com/ShapleyIO/iam-api/internal/config"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/argon2"
 )

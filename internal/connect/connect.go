@@ -3,8 +3,8 @@ package connect
 import (
 	"strings"
 
-	"github.com/ShapleyIO/iam/api"
-	"github.com/ShapleyIO/iam/internal/config"
+	"github.com/ShapleyIO/iam-api/api"
+	"github.com/ShapleyIO/iam-api/internal/config"
 )
 
 type Services struct {
